@@ -8,11 +8,23 @@
     #snapshots img { width: 22%; margin: 5px; border: 2px solid #ccc; border-radius: 5px; }
     #progress { margin: 10px 0; font-weight: bold; }
     #startBtn { padding: 10px 20px; font-size: 16px; margin: 10px 0; }
+    #rotateWarning {
+      display: none;
+      background: #ffdddd;
+      color: #a00;
+      padding: 10px;
+      font-weight: bold;
+      border: 2px solid #a00;
+      margin: 10px;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
 
 <h2>Insurance 8-Angle Auto Capture</h2>
+
+<div id="rotateWarning">📱 Please rotate your phone to <b>landscape mode</b> to continue.</div>
 
 <video id="camera-video" autoplay playsinline muted></video>
 <br>
@@ -23,15 +35,28 @@
 <script>
 let videoElement;
 let capturedAngles = new Set();
-const targetAngles = [0, 45, 90, 135, 180, 225, 270, 315]; // 8 required angles
-const tolerance = 15; // allow +/- 15° leeway
+const targetAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+const tolerance = 15;
 let capturing = false;
+
+// Check if device is in landscape
+function checkOrientation() {
+  const isLandscape = window.innerWidth > window.innerHeight;
+  const warning = document.getElementById("rotateWarning");
+  if (!isLandscape) {
+    warning.style.display = "block";
+    capturing = false; // stop capturing
+  } else {
+    warning.style.display = "none";
+    capturing = true; // allow capture
+  }
+}
 
 // Start camera
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     });
     videoElement = document.getElementById('camera-video');
@@ -43,7 +68,7 @@ async function startCamera() {
   }
 }
 
-// Take snapshot from video
+// Take snapshot
 function takeSnapshot(angleLabel) {
   const canvas = document.createElement('canvas');
   canvas.width = videoElement.videoWidth;
@@ -62,15 +87,14 @@ function takeSnapshot(angleLabel) {
 function handleOrientation(event) {
   if (!capturing) return;
 
-  let angle = Math.round(event.alpha); // 0–360
+  let angle = Math.round(event.alpha);
   document.getElementById("progress").innerText = `Current Angle: ${angle}°`;
 
-  // Find if close to a target angle
   for (let target of targetAngles) {
     if (!capturedAngles.has(target) && Math.abs(angle - target) <= tolerance) {
       capturedAngles.add(target);
       takeSnapshot(target);
-      document.getElementById("progress").innerText = 
+      document.getElementById("progress").innerText =
         `Captured ${capturedAngles.size}/8 at ${target}°`;
 
       if (capturedAngles.size === targetAngles.length) {
@@ -98,9 +122,12 @@ document.getElementById("startBtn").addEventListener("click", async () => {
     }
   }
 
-  // Start listening orientation
+  // Start listening to orientation
   window.addEventListener("deviceorientation", handleOrientation);
-  capturing = true;
+
+  // Watch screen orientation
+  window.addEventListener("resize", checkOrientation);
+  checkOrientation(); // check once at start
 
   // Start camera
   await startCamera();
