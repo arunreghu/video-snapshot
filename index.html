@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<h2>360° Auto Capture Version 2</h2>
+<h2>360° Auto Capture v3</h2>
 
 <video id="camera-video" autoplay playsinline muted></video>
 <br>
@@ -87,41 +87,32 @@ function handleOrientation(event) {
   }
 }
 
-// Ask for orientation permission (iOS & Android)
-async function initOrientation() {
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS Safari
-    try {
-      alert("Requesting orientation permission...");
-      const response = await DeviceOrientationEvent.requestPermission();
-      alert("Response: " + response);
-      if (response === 'granted') {
-        window.addEventListener("deviceorientation", handleOrientation);
-        capturing = true;
-        alert("✅ Permission granted for orientation");
-      } else {
-        alert("❌ Permission denied for orientation");
-      }
-    } catch (err) {
-      alert("Error: " + err.message);
-      console.error(err);
-    }
-  } else {
-    // Android or other browsers
-    alert("Orientation API available without permission (non-iOS)");
-    window.addEventListener("deviceorientation", handleOrientation);
-    capturing = true;
-  }
-}
-
 // Button click handler
 document.getElementById("startBtn").addEventListener("click", async () => {
+  // iOS Safari requires permission request directly in gesture
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const response = await DeviceOrientationEvent.requestPermission();
+      if (response !== 'granted') {
+        alert("❌ Orientation permission denied");
+        return;
+      }
+      alert("✅ Orientation permission granted");
+    } catch (err) {
+      alert("Error: " + err.message);
+      return;
+    }
+  }
+
+  // Start listening to orientation
+  window.addEventListener("deviceorientation", handleOrientation);
+  capturing = true;
+
+  // Then start camera
   await startCamera();
-  await initOrientation();
   document.getElementById("progress").innerText = "Progress: Started!";
 });
 </script>
 
 </body>
 </html>
-
