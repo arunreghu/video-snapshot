@@ -88,6 +88,7 @@ async function initOrientation() {
       if (response === 'granted') {
         window.addEventListener("deviceorientation", handleOrientation);
         capturing = true;
+        alert("Permission granted for orientation");
       } else {
         alert("Permission denied for orientation");
       }
