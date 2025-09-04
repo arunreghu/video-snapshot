@@ -3,7 +3,8 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    video { width: 100%; max-width: 400px; }
+    body { font-family: sans-serif; text-align: center; }
+    video { width: 100%; max-width: 400px; border: 2px solid #ccc; border-radius: 10px; }
     #snapshots img { width: 22%; margin: 5px; border: 2px solid #ccc; border-radius: 5px; }
     #progress { margin: 10px 0; font-weight: bold; }
     #startBtn { padding: 10px 20px; font-size: 16px; margin: 10px 0; }
@@ -14,6 +15,7 @@
 <h2>360° Auto Capture</h2>
 
 <video id="camera-video" autoplay playsinline muted></video>
+<br>
 <button id="startBtn">▶️ Start Capture</button>
 <div id="progress">Progress: Waiting...</div>
 <div id="snapshots"></div>
@@ -25,22 +27,23 @@ let startAngle = null;
 const angleStep = 15; // capture every 15 degrees
 let capturing = false;
 
+// Start camera (back camera if available)
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" },
       audio: false
     });
-
     videoElement = document.getElementById('camera-video');
     videoElement.srcObject = stream;
     await videoElement.play();
   } catch (error) {
-    console.error("Camera error:", error);
     alert("Camera access failed: " + error.name);
+    console.error("Camera error:", error);
   }
 }
 
+// Take snapshot from video
 function takeSnapshot(angle) {
   const canvas = document.createElement('canvas');
   canvas.width = videoElement.videoWidth;
@@ -55,6 +58,7 @@ function takeSnapshot(angle) {
   document.getElementById("snapshots").appendChild(img);
 }
 
+// Orientation handler
 function handleOrientation(event) {
   if (!capturing) return;
 
@@ -72,31 +76,39 @@ function handleOrientation(event) {
   if (Math.abs(angle - lastAngle) >= angleStep) {
     snapshotAngles.push(angle);
     takeSnapshot(angle);
-    document.getElementById("progress").innerText = `Progress: ${angle}° (Captured ${snapshotAngles.length})`;
+    document.getElementById("progress").innerText = 
+      `Progress: ${angle}° (Captured ${snapshotAngles.length})`;
   }
 
+  // Stop when back near startAngle
   if (snapshotAngles.length > 10 && Math.abs(angle - startAngle) < 10) {
     capturing = false;
     alert("✅ 360° capture complete!");
   }
 }
 
+// Ask for orientation permission (iOS & Android)
 async function initOrientation() {
   if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS Safari
     try {
+      alert("Requesting orientation permission...");
       const response = await DeviceOrientationEvent.requestPermission();
+      alert("Response: " + response);
       if (response === 'granted') {
         window.addEventListener("deviceorientation", handleOrientation);
         capturing = true;
-        alert("Permission granted for orientation");
+        alert("✅ Permission granted for orientation");
       } else {
-        alert("Permission denied for orientation");
+        alert("❌ Permission denied for orientation");
       }
     } catch (err) {
+      alert("Error: " + err.message);
       console.error(err);
     }
   } else {
-    // Android / other browsers
+    // Android or other browsers
+    alert("Orientation API available without permission (non-iOS)");
     window.addEventListener("deviceorientation", handleOrientation);
     capturing = true;
   }
@@ -106,10 +118,9 @@ async function initOrientation() {
 document.getElementById("startBtn").addEventListener("click", async () => {
   await startCamera();
   await initOrientation();
-  document.getElementById("progress").innerText = "Progress: Started2!";
+  document.getElementById("progress").innerText = "Progress: Started!";
 });
 </script>
 
 </body>
 </html>
-
