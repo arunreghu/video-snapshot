@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    video { width: 100%; max-width: 400px; }
+    #snapshots img { width: 22%; margin: 5px; border: 2px solid #ccc; border-radius: 5px; }
+    #progress { margin: 10px 0; font-weight: bold; }
+    #startBtn { padding: 10px 20px; font-size: 16px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+<h2>360° Auto Capture</h2>
+
+<video id="camera-video" autoplay playsinline muted></video>
+<button id="startBtn">▶️ Start Capture</button>
+<div id="progress">Progress: Waiting...</div>
+<div id="snapshots"></div>
+
+<script>
+let videoElement;
+let snapshotAngles = [];
+let startAngle = null;
+const angleStep = 15; // capture every 15 degrees
+let capturing = false;
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
+    });
+
+    videoElement = document.getElementById('camera-video');
+    videoElement.srcObject = stream;
+    await videoElement.play();
+  } catch (error) {
+    console.error("Camera error:", error);
+    alert("Camera access failed: " + error.name);
+  }
+}
+
+function takeSnapshot(angle) {
+  const canvas = document.createElement('canvas');
+  canvas.width = videoElement.videoWidth;
+  canvas.height = videoElement.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+  const img = document.createElement('img');
+  img.src = canvas.toDataURL("image/png");
+  img.alt = `Angle ${angle}°`;
+
+  document.getElementById("snapshots").appendChild(img);
+}
+
+function handleOrientation(event) {
+  if (!capturing) return;
+
+  let angle = Math.round(event.alpha); // 0–360 compass degrees
+
+  if (startAngle === null) {
+    startAngle = angle;
+    snapshotAngles.push(angle);
+    takeSnapshot(angle);
+    document.getElementById("progress").innerText = `Progress: ${angle}°`;
+    return;
+  }
+
+  let lastAngle = snapshotAngles[snapshotAngles.length - 1];
+  if (Math.abs(angle - lastAngle) >= angleStep) {
+    snapshotAngles.push(angle);
+    takeSnapshot(angle);
+    document.getElementById("progress").innerText = `Progress: ${angle}° (Captured ${snapshotAngles.length})`;
+  }
+
+  if (snapshotAngles.length > 10 && Math.abs(angle - startAngle) < 10) {
+    capturing = false;
+    alert("✅ 360° capture complete!");
+  }
+}
+
+async function initOrientation() {
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const response = await DeviceOrientationEvent.requestPermission();
+      if (response === 'granted') {
+        window.addEventListener("deviceorientation", handleOrientation);
+        capturing = true;
+      } else {
+        alert("Permission denied for orientation");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  } else {
+    // Android / other browsers
+    window.addEventListener("deviceorientation", handleOrientation);
+    capturing = true;
+  }
+}
+
+// Button click handler
+document.getElementById("startBtn").addEventListener("click", async () => {
+  await startCamera();
+  await initOrientation();
+  document.getElementById("progress").innerText = "Progress: Started!";
+});
+</script>
+
+</body>
+</html>
