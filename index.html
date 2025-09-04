@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<h2>360° Auto Capture v3</h2>
+<h2>Insurance 8-Angle Auto Capture</h2>
 
 <video id="camera-video" autoplay playsinline muted></video>
 <br>
@@ -22,12 +22,12 @@
 
 <script>
 let videoElement;
-let snapshotAngles = [];
-let startAngle = null;
-const angleStep = 15; // capture every 15 degrees
+let capturedAngles = new Set();
+const targetAngles = [0, 45, 90, 135, 180, 225, 270, 315]; // 8 required angles
+const tolerance = 15; // allow +/- 15° leeway
 let capturing = false;
 
-// Start camera (back camera if available)
+// Start camera
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -44,7 +44,7 @@ async function startCamera() {
 }
 
 // Take snapshot from video
-function takeSnapshot(angle) {
+function takeSnapshot(angleLabel) {
   const canvas = document.createElement('canvas');
   canvas.width = videoElement.videoWidth;
   canvas.height = videoElement.videoHeight;
@@ -53,7 +53,7 @@ function takeSnapshot(angle) {
 
   const img = document.createElement('img');
   img.src = canvas.toDataURL("image/png");
-  img.alt = `Angle ${angle}°`;
+  img.alt = `Angle ${angleLabel}°`;
 
   document.getElementById("snapshots").appendChild(img);
 }
@@ -62,34 +62,29 @@ function takeSnapshot(angle) {
 function handleOrientation(event) {
   if (!capturing) return;
 
-  let angle = Math.round(event.alpha); // 0–360 compass degrees
+  let angle = Math.round(event.alpha); // 0–360
+  document.getElementById("progress").innerText = `Current Angle: ${angle}°`;
 
-  if (startAngle === null) {
-    startAngle = angle;
-    snapshotAngles.push(angle);
-    takeSnapshot(angle);
-    document.getElementById("progress").innerText = `Progress: ${angle}°`;
-    return;
-  }
+  // Find if close to a target angle
+  for (let target of targetAngles) {
+    if (!capturedAngles.has(target) && Math.abs(angle - target) <= tolerance) {
+      capturedAngles.add(target);
+      takeSnapshot(target);
+      document.getElementById("progress").innerText = 
+        `Captured ${capturedAngles.size}/8 at ${target}°`;
 
-  let lastAngle = snapshotAngles[snapshotAngles.length - 1];
-  if (Math.abs(angle - lastAngle) >= angleStep) {
-    snapshotAngles.push(angle);
-    takeSnapshot(angle);
-    document.getElementById("progress").innerText = 
-      `Progress: ${angle}° (Captured ${snapshotAngles.length})`;
-  }
-
-  // Stop when back near startAngle
-  if (snapshotAngles.length > 10 && Math.abs(angle - startAngle) < 10) {
-    capturing = false;
-    alert("✅ 360° capture complete!");
+      if (capturedAngles.size === targetAngles.length) {
+        capturing = false;
+        alert("✅ All 8 required angles captured!");
+      }
+      break;
+    }
   }
 }
 
 // Button click handler
 document.getElementById("startBtn").addEventListener("click", async () => {
-  // iOS Safari requires permission request directly in gesture
+  // iOS Safari needs permission
   if (typeof DeviceOrientationEvent.requestPermission === 'function') {
     try {
       const response = await DeviceOrientationEvent.requestPermission();
@@ -97,18 +92,17 @@ document.getElementById("startBtn").addEventListener("click", async () => {
         alert("❌ Orientation permission denied");
         return;
       }
-      alert("✅ Orientation permission granted");
     } catch (err) {
       alert("Error: " + err.message);
       return;
     }
   }
 
-  // Start listening to orientation
+  // Start listening orientation
   window.addEventListener("deviceorientation", handleOrientation);
   capturing = true;
 
-  // Then start camera
+  // Start camera
   await startCamera();
   document.getElementById("progress").innerText = "Progress: Started!";
 });
